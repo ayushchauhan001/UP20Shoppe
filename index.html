@@ -86,6 +86,42 @@ const STORE_KEYS = {
   session: "session:currentUserId",
 };
 
+/*
+ * Paste the "Web app" URL from your deployed Google Apps Script here
+ * (see the setup instructions you were given). Leave empty to disable
+ * — orders will still be saved locally, just not sent to your sheet.
+ */
+const ORDER_SHEET_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxI-6XiSHw7_1l_IDyUXkFc56ui5DhDIH0nin-invOOKcTMyU8A-aUqfkt5ji7-E1oz/exec";
+
+async function sendOrderToSheet(order) {
+  if (!ORDER_SHEET_WEBHOOK_URL) return;
+  try {
+    await fetch(ORDER_SHEET_WEBHOOK_URL, {
+      method: "POST",
+      mode: "no-cors", // Apps Script web apps don't return CORS headers; we can't read the response, but the row still gets appended
+      headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids a CORS preflight, which Apps Script can't handle
+      body: JSON.stringify({
+        orderId: order.id,
+        createdAt: new Date(order.createdAt).toLocaleString("en-IN"),
+        customerName: order.customerName || "",
+        customerEmail: order.customerEmail || "",
+        phone: order.address.phone,
+        addressLine1: order.address.line1,
+        tehsil: order.address.tehsil,
+        pincode: order.address.pincode,
+        items: order.items.map((i) => `${i.name} x${i.qty}`).join(", "),
+        itemsTotal: order.items.reduce((s, i) => s + i.qty * i.price, 0),
+        deliveryFee: order.deliveryFee,
+        grandTotal: order.total,
+        paymentMethod: order.paymentMethod,
+        status: order.status,
+      }),
+    });
+  } catch (e) {
+    console.error("Could not send order to Google Sheet", e);
+  }
+}
+
 const inr = (n) => `₹${n.toLocaleString("en-IN")}`;
 const uid = (p = "id") => `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -282,6 +318,8 @@ function App() {
     const order = {
       id: uid("order"),
       userId: currentUser.id,
+      customerName: currentUser.name,
+      customerEmail: currentUser.email,
       items: cartItems.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
       total: grandTotal,
       deliveryFee,
@@ -293,6 +331,7 @@ function App() {
     const nextOrders = [order, ...orders];
     setOrders(nextOrders);
     await storageSet(STORE_KEYS.orders, nextOrders, true);
+    sendOrderToSheet(order);
 
     const updatedUsers = users.map((u) => (u.id === currentUser.id ? { ...u, address } : u));
     setUsers(updatedUsers);
