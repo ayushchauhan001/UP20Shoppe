@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UP20Shoppe — Daily Essentials, Delivered Across Bijnor</title>
+<meta name="description" content="UP20Shoppe: daily-need essentials delivered across every tehsil of Bijnor district, Uttar Pradesh." />
+
+<!-- Tailwind (CDN, no build step) -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Browser-native ES module resolution for React + lucide-react -->
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react"
+  }
+}
+</script>
+
+<!-- Babel Standalone: transforms the JSX below into ES modules right in the browser -->
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+<style>
+  html, body, #root { min-height: 100%; }
+  body { margin: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-type="module" data-presets="react">
+import React, { useState, useEffect, useMemo } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  ShoppingCart, Search, User, X, Plus, Minus, MapPin, Phone, Mail,
+  Package, LogOut, Check, Loader2, Trash2, Menu, Home, ListOrdered,
+  ShieldCheck, Truck, Wheat
+} from "lucide-react";
+
+/* ------------------------------------------------------------------ */
+/* Constants & seed data                                               */
+/* ------------------------------------------------------------------ */
+
+const TEHSILS = [
+  "Bijnor", "Nagina", "Najibabad", "Dhampur", "Chandpur",
+  "Nehtaur", "Seohara", "Kiratpur", "Noorpur", "Afzalgarh"
+];
+
+const CATEGORIES = [
+  "All", "Grocery & Staples", "Dairy & Bakery", "Fruits & Vegetables",
+  "Personal Care", "Household", "Snacks & Beverages"
+];
+
+const SEED_PRODUCTS = [
+  { id: "p1", name: "Basmati Rice", desc: "Premium long-grain rice, 5kg", price: 480, unit: "5 kg", category: "Grocery & Staples", tag: "Bestseller" },
+  { id: "p2", name: "Toor Dal", desc: "Unpolished arhar dal, 1kg", price: 145, unit: "1 kg", category: "Grocery & Staples" },
+  { id: "p3", name: "Mustard Oil (Kachi Ghani)", desc: "Cold-pressed, UP favourite", price: 210, unit: "1 L", category: "Grocery & Staples", tag: "Local Favourite" },
+  { id: "p4", name: "Atta (Whole Wheat Flour)", desc: "Chakki fresh atta, 10kg", price: 420, unit: "10 kg", category: "Grocery & Staples" },
+  { id: "p5", name: "Fresh Toned Milk", desc: "Delivered chilled every morning", price: 58, unit: "1 L", category: "Dairy & Bakery", tag: "Daily Essential" },
+  { id: "p6", name: "Paneer", desc: "Soft, fresh-made paneer", price: 90, unit: "250 g", category: "Dairy & Bakery" },
+  { id: "p7", name: "Bread Loaf", desc: "Soft sandwich bread", price: 45, unit: "400 g", category: "Dairy & Bakery" },
+  { id: "p8", name: "Curd (Dahi)", desc: "Thick and fresh", price: 40, unit: "500 g", category: "Dairy & Bakery" },
+  { id: "p9", name: "Bijnor Mangoes", desc: "Seasonal Dussehri/Langda mangoes from local orchards", price: 120, unit: "1 kg", category: "Fruits & Vegetables", tag: "Bijnor Special" },
+  { id: "p10", name: "Onion", desc: "Farm fresh onions", price: 35, unit: "1 kg", category: "Fruits & Vegetables" },
+  { id: "p11", name: "Potato", desc: "Farm fresh potatoes", price: 28, unit: "1 kg", category: "Fruits & Vegetables" },
+  { id: "p12", name: "Tomato", desc: "Vine ripened", price: 40, unit: "1 kg", category: "Fruits & Vegetables" },
+  { id: "p13", name: "Sugarcane Jaggery (Gur)", desc: "From local Bijnor sugar mills — the district's pride", price: 65, unit: "500 g", category: "Grocery & Staples", tag: "Bijnor Special" },
+  { id: "p14", name: "Toothpaste", desc: "Cavity protection, 150g", price: 95, unit: "150 g", category: "Personal Care" },
+  { id: "p15", name: "Bathing Soap Pack", desc: "Pack of 4", price: 120, unit: "4 pcs", category: "Personal Care" },
+  { id: "p16", name: "Shampoo", desc: "Anti-dandruff, 340ml", price: 210, unit: "340 ml", category: "Personal Care" },
+  { id: "p17", name: "Dishwash Bar", desc: "Grease-cutting, pack of 3", price: 55, unit: "3 pcs", category: "Household" },
+  { id: "p18", name: "Detergent Powder", desc: "1kg pack", price: 130, unit: "1 kg", category: "Household" },
+  { id: "p19", name: "Agarbatti (Incense Sticks)", desc: "Sandalwood fragrance", price: 40, unit: "1 pack", category: "Household" },
+  { id: "p20", name: "Masala Chai Pack", desc: "CTC tea leaves, strong brew", price: 110, unit: "500 g", category: "Snacks & Beverages" },
+  { id: "p21", name: "Namkeen Mix", desc: "Locally made savoury snack mix", price: 60, unit: "200 g", category: "Snacks & Beverages", tag: "Local Favourite" },
+  { id: "p22", name: "Biscuit Combo", desc: "Assorted glucose & cream biscuits", price: 80, unit: "6 packs", category: "Snacks & Beverages" },
+];
+
+const STORE_KEYS = {
+  products: "up20shoppe:products",
+  users: "up20shoppe:users",
+  orders: "up20shoppe:orders",
+  session: "session:currentUserId",
+};
+
+const inr = (n) => `₹${n.toLocaleString("en-IN")}`;
+const uid = (p = "id") => `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+/* Simple demo-only encoding — NOT real security. See deployment notes. */
+const encode = (s) => btoa(unescape(encodeURIComponent(s)));
+
+/* Browser localStorage-backed persistence (works on any static host, incl. GitHub Pages) */
+async function storageGet(key) {
+  try {
+    const v = localStorage.getItem(key);
+    return v ? JSON.parse(v) : null;
+  } catch {
+    return null;
+  }
+}
+async function storageSet(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.error("storage set failed", e);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Small shared UI bits                                                */
+/* ------------------------------------------------------------------ */
+
+function Badge({ children, tone = "amber" }) {
+  const tones = {
+    amber: "bg-amber-100 text-amber-800 border-amber-300",
+    emerald: "bg-emerald-100 text-emerald-800 border-emerald-300",
+    stone: "bg-stone-100 text-stone-700 border-stone-300",
+  };
+  return (
+    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${tones[tone]}`}>
+      {children}
+    </span>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block mb-3">
+      <span className="block text-sm font-medium text-stone-700 mb-1">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const inputCls =
+  "w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600";
+
+/* ------------------------------------------------------------------ */
+/* Main App                                                            */
+/* ------------------------------------------------------------------ */
+
+function App() {
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  const [view, setView] = useState("home");
+  const [category, setCategory] = useState("All");
+  const [query, setQuery] = useState("");
+  const [cart, setCart] = useState({}); // { productId: qty }
+  const [cartOpen, setCartOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [authMode, setAuthMode] = useState(null); // 'login' | 'signup' | null
+  const [authError, setAuthError] = useState("");
+  const [placing, setPlacing] = useState(false);
+  const [lastOrder, setLastOrder] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [address, setAddress] = useState({ line1: "", tehsil: TEHSILS[0], pincode: "", phone: "" });
+
+  /* ---------------- initial load ---------------- */
+  useEffect(() => {
+    (async () => {
+      let p = await storageGet(STORE_KEYS.products, true);
+      if (!p || !p.length) {
+        p = SEED_PRODUCTS;
+        await storageSet(STORE_KEYS.products, p, true);
+      }
+      const u = (await storageGet(STORE_KEYS.users, true)) || [];
+      const o = (await storageGet(STORE_KEYS.orders, true)) || [];
+      const sessionId = await storageGet(STORE_KEYS.session, false);
+      setProducts(p);
+      setUsers(u);
+      setOrders(o);
+      setCurrentUserId(sessionId || null);
+      setLoading(false);
+    })();
+  }, []);
+
+  const currentUser = useMemo(
+    () => users.find((u) => u.id === currentUserId) || null,
+    [users, currentUserId]
+  );
+
+  useEffect(() => {
+    if (currentUser?.address) setAddress(currentUser.address);
+  }, [currentUser]);
+
+  /* ---------------- derived ---------------- */
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchesCat = category === "All" || p.category === category;
+      const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase());
+      return matchesCat && matchesQuery;
+    });
+  }, [products, category, query]);
+
+  const cartItems = useMemo(() => {
+    return Object.entries(cart)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, qty]) => ({ ...products.find((p) => p.id === id), qty }))
+      .filter((i) => i.id);
+  }, [cart, products]);
+
+  const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
+  const cartTotal = cartItems.reduce((s, i) => s + i.qty * i.price, 0);
+  const deliveryFee = cartTotal > 0 && cartTotal < 300 ? 25 : 0;
+  const grandTotal = cartTotal + deliveryFee;
+
+  const myOrders = useMemo(
+    () => orders.filter((o) => o.userId === currentUserId).sort((a, b) => b.createdAt - a.createdAt),
+    [orders, currentUserId]
+  );
+
+  /* ---------------- actions ---------------- */
+  function updateQty(productId, delta) {
+    setCart((c) => {
+      const next = { ...c, [productId]: Math.max(0, (c[productId] || 0) + delta) };
+      return next;
+    });
+  }
+
+  function handleSignup(form) {
+    setAuthError("");
+    if (users.some((u) => u.email.toLowerCase() === form.email.toLowerCase())) {
+      setAuthError("An account with this email already exists.");
+      return;
+    }
+    const newUser = {
+      id: uid("user"),
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      passwordHash: encode(form.password),
+      address: { line1: "", tehsil: TEHSILS[0], pincode: "", phone: form.phone },
+    };
+    const nextUsers = [...users, newUser];
+    setUsers(nextUsers);
+    storageSet(STORE_KEYS.users, nextUsers, true);
+    setCurrentUserId(newUser.id);
+    storageSet(STORE_KEYS.session, newUser.id, false);
+    setAuthMode(null);
+    setView("home");
+  }
+
+  function handleLogin(form) {
+    setAuthError("");
+    const found = users.find((u) => u.email.toLowerCase() === form.email.toLowerCase());
+    if (!found || found.passwordHash !== encode(form.password)) {
+      setAuthError("Incorrect email or password.");
+      return;
+    }
+    setCurrentUserId(found.id);
+    storageSet(STORE_KEYS.session, found.id, false);
+    setAuthMode(null);
+    setView("home");
+  }
+
+  function handleLogout() {
+    setCurrentUserId(null);
+    storageSet(STORE_KEYS.session, null, false);
+    setView("home");
+  }
+
+  async function placeOrder() {
+    if (!currentUser) {
+      setAuthMode("login");
+      return;
+    }
+    if (!address.line1 || !address.pincode) {
+      alert("Please fill in your delivery address before placing the order.");
+      return;
+    }
+    setPlacing(true);
+    // simulate payment / order processing latency
+    await new Promise((res) => setTimeout(res, 1400));
+
+    const order = {
+      id: uid("order"),
+      userId: currentUser.id,
+      items: cartItems.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+      total: grandTotal,
+      deliveryFee,
+      address: { ...address },
+      paymentMethod,
+      status: paymentMethod === "cod" ? "Confirmed (Pay on Delivery)" : "Paid & Confirmed",
+      createdAt: Date.now(),
+    };
+    const nextOrders = [order, ...orders];
+    setOrders(nextOrders);
+    await storageSet(STORE_KEYS.orders, nextOrders, true);
+
+    const updatedUsers = users.map((u) => (u.id === currentUser.id ? { ...u, address } : u));
+    setUsers(updatedUsers);
+    await storageSet(STORE_KEYS.users, updatedUsers, true);
+
+    setCart({});
+    setLastOrder(order);
+    setPlacing(false);
+    setView("confirmation");
+  }
+
+  function cancelOrder(orderId) {
+    const next = orders.map((o) => (o.id === orderId ? { ...o, status: "Cancelled" } : o));
+    setOrders(next);
+    storageSet(STORE_KEYS.orders, next, true);
+  }
+
+  /* ---------------- render ---------------- */
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-amber-50">
+        <div className="flex items-center gap-2 text-emerald-800">
+          <Loader2 className="animate-spin" size={20} />
+          <span className="font-medium">Loading UP20Shoppe…</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-amber-50 text-stone-900 font-sans flex flex-col">
+      {/* Tehsil ticker */}
+      <div className="bg-emerald-900 text-amber-50 text-xs overflow-hidden whitespace-nowrap py-1.5">
+        <div className="inline-block px-4 animate-none">
+          Now delivering daily essentials across Bijnor district:&nbsp;
+          {TEHSILS.map((t, i) => (
+            <span key={t} className="mx-2">
+              {t}{i < TEHSILS.length - 1 ? " •" : ""}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Navbar */}
+      <header className="sticky top-0 z-30 bg-amber-50/95 backdrop-blur border-b border-amber-200">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+          <button className="md:hidden" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
+            <Menu size={22} />
+          </button>
+          <button
+            onClick={() => setView("home")}
+            className="flex items-center gap-2 font-serif text-xl font-bold text-emerald-900 shrink-0"
+          >
+            <Wheat size={22} className="text-amber-600" />
+            UP20<span className="text-amber-600">Shoppe</span>
+          </button>
+
+          <div className="hidden md:flex items-center flex-1 max-w-md ml-4 relative">
+            <Search size={16} className="absolute left-3 text-stone-400" />
+            <input
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setView("products"); }}
+              placeholder="Search daily essentials…"
+              className="w-full pl-9 pr-3 py-2 rounded-full border border-stone-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            />
+          </div>
+
+          <nav className="hidden md:flex items-center gap-1 ml-auto mr-2">
+            <button onClick={() => setView("home")} className="px-3 py-2 text-sm font-medium text-stone-700 hover:text-emerald-800 rounded-lg hover:bg-amber-100">Home</button>
+            <button onClick={() => setView("products")} className="px-3 py-2 text-sm font-medium text-stone-700 hover:text-emerald-800 rounded-lg hover:bg-amber-100">Shop</button>
+            {currentUser && (
+              <button onClick={() => setView("orders")} className="px-3 py-2 text-sm font-medium text-stone-700 hover:text-emerald-800 rounded-lg hover:bg-amber-100">My Orders</button>
+            )}
+          </nav>
+
+          <div className="ml-auto md:ml-0 flex items-center gap-2">
+            {currentUser ? (
+              <div className="hidden sm:flex items-center gap-2">
+                <span className="text-sm text-stone-700">Hi, {currentUser.name.split(" ")[0]}</span>
+                <button onClick={handleLogout} title="Log out" className="p-2 rounded-lg hover:bg-amber-100 text-stone-600">
+                  <LogOut size={18} />
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setAuthMode("login")} className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg hover:bg-amber-100 text-stone-700">
+                <User size={18} /> <span className="hidden sm:inline">Login</span>
+              </button>
+            )}
+            <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-lg hover:bg-amber-100">
+              <ShoppingCart size={20} className="text-emerald-900" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {menuOpen && (
+          <div className="md:hidden border-t border-amber-200 px-4 py-2 flex flex-col gap-1 bg-amber-50">
+            <div className="relative mb-2">
+              <Search size={16} className="absolute left-3 top-2.5 text-stone-400" />
+              <input
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setView("products"); }}
+                placeholder="Search…"
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-stone-300 bg-white text-sm"
+              />
+            </div>
+            <button onClick={() => { setView("home"); setMenuOpen(false); }} className="text-left px-2 py-2 rounded hover:bg-amber-100 flex items-center gap-2"><Home size={16}/> Home</button>
+            <button onClick={() => { setView("products"); setMenuOpen(false); }} className="text-left px-2 py-2 rounded hover:bg-amber-100 flex items-center gap-2"><ShoppingCart size={16}/> Shop</button>
+            {currentUser && <button onClick={() => { setView("orders"); setMenuOpen(false); }} className="text-left px-2 py-2 rounded hover:bg-amber-100 flex items-center gap-2"><ListOrdered size={16}/> My Orders</button>}
+            {currentUser ? (
+              <button onClick={() => { handleLogout(); setMenuOpen(false); }} className="text-left px-2 py-2 rounded hover:bg-amber-100 flex items-center gap-2"><LogOut size={16}/> Log out</button>
+            ) : (
+              <button onClick={() => { setAuthMode("login"); setMenuOpen(false); }} className="text-left px-2 py-2 rounded hover:bg-amber-100 flex items-center gap-2"><User size={16}/> Login</button>
+            )}
+          </div>
+        )}
+      </header>
+
+      {/* Main content */}
+      <main className="flex-1">
+        {view === "home" && (
+          <HomeView
+            setView={setView}
+            setCategory={setCategory}
+            products={products}
+            addToCart={(id) => updateQty(id, 1)}
+          />
+        )}
+
+        {view === "products" && (
+          <ShopView
+            category={category}
+            setCategory={setCategory}
+            products={filteredProducts}
+            cart={cart}
+            updateQty={updateQty}
+          />
+        )}
+
+        {view === "orders" && currentUser && (
+          <OrdersView orders={myOrders} onCancel={cancelOrder} onShop={() => setView("products")} />
+        )}
+
+        {view === "checkout" && (
+          <CheckoutView
+            currentUser={currentUser}
+            cartItems={cartItems}
+            cartTotal={cartTotal}
+            deliveryFee={deliveryFee}
+            grandTotal={grandTotal}
+            address={address}
+            setAddress={setAddress}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+            placing={placing}
+            placeOrder={placeOrder}
+            requireLogin={() => setAuthMode("login")}
+          />
+        )}
+
+        {view === "confirmation" && lastOrder && (
+          <ConfirmationView order={lastOrder} setView={setView} />
+        )}
+      </main>
+
+      {/* Cart drawer */}
+      {cartOpen && (
+        <CartDrawer
+          items={cartItems}
+          total={cartTotal}
+          updateQty={updateQty}
+          onClose={() => setCartOpen(false)}
+          onCheckout={() => { setCartOpen(false); setView("checkout"); }}
+        />
+      )}
+
+      {/* Auth modal */}
+      {authMode && (
+        <AuthModal
+          mode={authMode}
+          setMode={setAuthMode}
+          onClose={() => { setAuthMode(null); setAuthError(""); }}
+          onLogin={handleLogin}
+          onSignup={handleSignup}
+          error={authError}
+        />
+      )}
+
+      <Footer />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Views                                                               */
+/* ------------------------------------------------------------------ */
+
+function HomeView({ setView, setCategory, products, addToCart }) {
+  const featured = products.filter((p) => p.tag === "Bijnor Special" || p.tag === "Local Favourite").slice(0, 4);
+  return (
+    <div>
+      <section className="bg-gradient-to-b from-emerald-900 to-emerald-800 text-amber-50">
+        <div className="max-w-6xl mx-auto px-4 py-14 grid md:grid-cols-2 gap-8 items-center">
+          <div>
+            <p className="text-amber-300 text-sm font-semibold tracking-wide mb-2">DAILY ESSENTIALS, DELIVERED LOCALLY</p>
+            <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight mb-4">
+              Bijnor's own <span className="text-amber-400">daily-need</span> shop, online.
+            </h1>
+            <p className="text-emerald-100 mb-6 max-w-md">
+              From sugarcane gur to Dussehri mangoes — UP20Shoppe brings your everyday kirana list
+              to your doorstep across all ten tehsils of Bijnor district.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button onClick={() => setView("products")} className="bg-amber-500 hover:bg-amber-400 text-emerald-950 font-semibold px-5 py-2.5 rounded-lg transition">
+                Start Shopping
+              </button>
+              <button onClick={() => { setCategory("Fruits & Vegetables"); setView("products"); }} className="border border-amber-300 text-amber-100 hover:bg-emerald-800 font-semibold px-5 py-2.5 rounded-lg transition">
+                Today's Fresh Picks
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-emerald-800/60 border border-emerald-700 rounded-xl p-4 flex flex-col items-center text-center">
+              <Truck size={26} className="text-amber-400 mb-2" />
+              <span className="text-xs text-emerald-100">Same-day delivery across Bijnor</span>
+            </div>
+            <div className="bg-emerald-800/60 border border-emerald-700 rounded-xl p-4 flex flex-col items-center text-center">
+              <ShieldCheck size={26} className="text-amber-400 mb-2" />
+              <span className="text-xs text-emerald-100">Pay on delivery or online</span>
+            </div>
+            <div className="bg-emerald-800/60 border border-emerald-700 rounded-xl p-4 flex flex-col items-center text-center">
+              <Wheat size={26} className="text-amber-400 mb-2" />
+              <span className="text-xs text-emerald-100">Local produce, local pride</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-4 py-10">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-serif text-2xl font-bold text-emerald-900">Bijnor Specials & Local Favourites</h2>
+          <button onClick={() => setView("products")} className="text-sm font-semibold text-emerald-800 hover:underline">View all</button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {featured.map((p) => (
+            <ProductCard key={p.id} product={p} qty={0} onAdd={() => addToCart(p.id)} onChange={() => {}} compact />
+          ))}
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-4 pb-14">
+        <h2 className="font-serif text-2xl font-bold text-emerald-900 mb-4">Shop by Category</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {CATEGORIES.filter((c) => c !== "All").map((c) => (
+            <button
+              key={c}
+              onClick={() => { setCategory(c); setView("products"); }}
+              className="bg-white border border-amber-200 rounded-xl px-5 py-6 text-left hover:border-emerald-600 hover:shadow-md transition"
+            >
+              <span className="font-serif text-lg font-semibold text-stone-800">{c}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ShopView({ category, setCategory, products, cart, updateQty }) {
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <h1 className="font-serif text-3xl font-bold text-emerald-900 mb-4">Shop Daily Essentials</h1>
+      <div className="flex gap-2 overflow-x-auto pb-3 mb-5">
+        {CATEGORIES.map((c) => (
+          <button
+            key={c}
+            onClick={() => setCategory(c)}
+            className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition ${
+              category === c
+                ? "bg-emerald-800 text-white border-emerald-800"
+                : "bg-white text-stone-700 border-stone-300 hover:border-emerald-600"
+            }`}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {products.length === 0 ? (
+        <p className="text-stone-500 py-10 text-center">No products match your search in this category.</p>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {products.map((p) => (
+            <ProductCard
+              key={p.id}
+              product={p}
+              qty={cart[p.id] || 0}
+              onAdd={() => updateQty(p.id, 1)}
+              onChange={(d) => updateQty(p.id, d)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductCard({ product, qty, onAdd, onChange, compact }) {
+  return (
+    <div className="bg-white border border-amber-200 rounded-xl p-4 flex flex-col hover:shadow-md transition">
+      <div className="h-20 mb-3 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-serif text-2xl font-bold">
+        {product.name.charAt(0)}
+      </div>
+      {product.tag && (
+        <div className="mb-1.5">
+          <Badge tone={product.tag.includes("Bijnor") ? "emerald" : "amber"}>{product.tag}</Badge>
+        </div>
+      )}
+      <h3 className="font-semibold text-stone-800 leading-tight">{product.name}</h3>
+      {!compact && <p className="text-xs text-stone-500 mt-1">{product.desc}</p>}
+      <div className="mt-2 flex items-center justify-between">
+        <span className="font-bold text-emerald-900">{inr(product.price)}</span>
+        <span className="text-xs text-stone-400">/ {product.unit}</span>
+      </div>
+
+      {qty > 0 ? (
+        <div className="mt-3 flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
+          <button onClick={() => onChange(-1)} className="p-1 text-emerald-800"><Minus size={14} /></button>
+          <span className="font-semibold text-sm text-emerald-900">{qty}</span>
+          <button onClick={() => onChange(1)} className="p-1 text-emerald-800"><Plus size={14} /></button>
+        </div>
+      ) : (
+        <button
+          onClick={onAdd}
+          className="mt-3 bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-semibold py-1.5 rounded-lg transition"
+        >
+          Add to Cart
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CartDrawer({ items, total, updateQty, onClose, onCheckout }) {
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-amber-50 h-full flex flex-col shadow-xl">
+        <div className="flex items-center justify-between px-4 py-4 border-b border-amber-200">
+          <h2 className="font-serif text-lg font-bold text-emerald-900">Your Cart</h2>
+          <button onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {items.length === 0 ? (
+            <p className="text-stone-500 text-center mt-10">Your cart is empty.</p>
+          ) : (
+            items.map((i) => (
+              <div key={i.id} className="flex items-center gap-3 py-3 border-b border-amber-100">
+                <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
+                  {i.name.charAt(0)}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-stone-800">{i.name}</p>
+                  <p className="text-xs text-stone-500">{inr(i.price)} / {i.unit}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => updateQty(i.id, -1)} className="p-1 rounded bg-amber-100"><Minus size={12} /></button>
+                  <span className="text-sm font-medium w-4 text-center">{i.qty}</span>
+                  <button onClick={() => updateQty(i.id, 1)} className="p-1 rounded bg-amber-100"><Plus size={12} /></button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        {items.length > 0 && (
+          <div className="border-t border-amber-200 px-4 py-4">
+            <div className="flex justify-between font-semibold text-stone-800 mb-3">
+              <span>Subtotal</span>
+              <span>{inr(total)}</span>
+            </div>
+            <button onClick={onCheckout} className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-semibold py-2.5 rounded-lg transition">
+              Proceed to Checkout
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CheckoutView({ currentUser, cartItems, cartTotal, deliveryFee, grandTotal, address, setAddress, paymentMethod, setPaymentMethod, placing, placeOrder, requireLogin }) {
+  if (cartItems.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center">
+        <Package size={40} className="mx-auto text-stone-400 mb-3" />
+        <p className="text-stone-600">Your cart is empty — add some daily essentials first.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-8 grid md:grid-cols-2 gap-8">
+      <div>
+        <h1 className="font-serif text-2xl font-bold text-emerald-900 mb-4">Delivery Address</h1>
+        {!currentUser && (
+          <div className="bg-amber-100 border border-amber-300 rounded-lg p-3 text-sm text-amber-900 mb-4">
+            Please <button onClick={requireLogin} className="font-semibold underline">log in</button> to place your order.
+          </div>
+        )}
+        <Field label="House no. / Street / Locality">
+          <input className={inputCls} value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} placeholder="e.g. 12 Civil Lines, near Ghanta Ghar" />
+        </Field>
+        <Field label="Tehsil">
+          <select className={inputCls} value={address.tehsil} onChange={(e) => setAddress({ ...address, tehsil: e.target.value })}>
+            {TEHSILS.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </Field>
+        <Field label="Pincode">
+          <input className={inputCls} value={address.pincode} onChange={(e) => setAddress({ ...address, pincode: e.target.value })} placeholder="246701" />
+        </Field>
+        <Field label="Contact Phone">
+          <input className={inputCls} value={address.phone} onChange={(e) => setAddress({ ...address, phone: e.target.value })} placeholder="10-digit mobile number" />
+        </Field>
+
+        <h2 className="font-serif text-xl font-bold text-emerald-900 mt-6 mb-3">Payment Method</h2>
+        <div className="space-y-2">
+          <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${paymentMethod === "cod" ? "border-emerald-600 bg-emerald-50" : "border-stone-300"}`}>
+            <input type="radio" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} />
+            <span className="font-medium text-sm">Cash on Delivery</span>
+          </label>
+          <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${paymentMethod === "online" ? "border-emerald-600 bg-emerald-50" : "border-stone-300"}`}>
+            <input type="radio" checked={paymentMethod === "online"} onChange={() => setPaymentMethod("online")} />
+            <span className="font-medium text-sm">Pay Online (UPI / Card — demo simulation)</span>
+          </label>
+        </div>
+        {paymentMethod === "online" && (
+          <p className="text-xs text-stone-500 mt-2">
+            This is a simulated payment for demo purposes — no real transaction occurs. A live gateway (e.g. Razorpay) needs a backend integration.
+          </p>
+        )}
+      </div>
+
+      <div>
+        <h2 className="font-serif text-xl font-bold text-emerald-900 mb-4">Order Summary</h2>
+        <div className="bg-white border border-amber-200 rounded-xl p-4 divide-y divide-amber-100">
+          {cartItems.map((i) => (
+            <div key={i.id} className="flex justify-between py-2 text-sm">
+              <span>{i.name} × {i.qty}</span>
+              <span className="font-medium">{inr(i.price * i.qty)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 space-y-1 text-sm">
+          <div className="flex justify-between"><span>Subtotal</span><span>{inr(cartTotal)}</span></div>
+          <div className="flex justify-between"><span>Delivery fee</span><span>{deliveryFee === 0 ? "Free" : inr(deliveryFee)}</span></div>
+          <div className="flex justify-between font-bold text-lg text-emerald-900 pt-2 border-t border-amber-200"><span>Total</span><span>{inr(grandTotal)}</span></div>
+        </div>
+        <button
+          onClick={placeOrder}
+          disabled={placing}
+          className="mt-5 w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-emerald-950 font-bold py-3 rounded-lg transition flex items-center justify-center gap-2"
+        >
+          {placing ? (<><Loader2 size={18} className="animate-spin" /> Processing…</>) : (`Place Order — ${inr(grandTotal)}`)}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmationView({ order, setView }) {
+  return (
+    <div className="max-w-lg mx-auto px-4 py-16 text-center">
+      <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+        <Check size={30} className="text-emerald-700" />
+      </div>
+      <h1 className="font-serif text-2xl font-bold text-emerald-900 mb-2">Order Placed!</h1>
+      <p className="text-stone-600 mb-1">Order ID: <span className="font-mono font-semibold">{order.id}</span></p>
+      <p className="text-stone-600 mb-6">Status: <Badge tone="emerald">{order.status}</Badge></p>
+      <p className="text-stone-500 text-sm mb-8">Delivering to {order.address.line1}, {order.address.tehsil} — {order.address.pincode}</p>
+      <div className="flex gap-3 justify-center">
+        <button onClick={() => setView("orders")} className="bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-5 py-2.5 rounded-lg">View My Orders</button>
+        <button onClick={() => setView("products")} className="border border-emerald-700 text-emerald-800 font-semibold px-5 py-2.5 rounded-lg">Continue Shopping</button>
+      </div>
+    </div>
+  );
+}
+
+function OrdersView({ orders, onCancel, onShop }) {
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <h1 className="font-serif text-2xl font-bold text-emerald-900 mb-6">My Orders</h1>
+      {orders.length === 0 ? (
+        <div className="text-center py-16">
+          <Package size={40} className="mx-auto text-stone-400 mb-3" />
+          <p className="text-stone-600 mb-4">You haven't placed any orders yet.</p>
+          <button onClick={onShop} className="bg-emerald-800 text-white font-semibold px-5 py-2.5 rounded-lg">Start Shopping</button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {orders.map((o) => (
+            <div key={o.id} className="bg-white border border-amber-200 rounded-xl p-4">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <p className="font-mono text-xs text-stone-400">{o.id}</p>
+                  <p className="text-sm text-stone-500">{new Date(o.createdAt).toLocaleString("en-IN")}</p>
+                </div>
+                <Badge tone={o.status === "Cancelled" ? "stone" : "emerald"}>{o.status}</Badge>
+              </div>
+              <div className="text-sm text-stone-700 divide-y divide-amber-100">
+                {o.items.map((i) => (
+                  <div key={i.id} className="flex justify-between py-1">
+                    <span>{i.name} × {i.qty}</span>
+                    <span>{inr(i.price * i.qty)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between items-center mt-3 pt-3 border-t border-amber-100">
+                <span className="font-bold text-emerald-900">{inr(o.total)}</span>
+                {o.status.startsWith("Confirmed") || o.status.startsWith("Paid") ? (
+                  <button onClick={() => onCancel(o.id)} className="text-xs font-semibold text-rose-600 hover:underline">Cancel order</button>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AuthModal({ mode, setMode, onClose, onLogin, onSignup, error }) {
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-amber-50 rounded-xl shadow-xl w-full max-w-sm p-6">
+        <button onClick={onClose} className="absolute top-3 right-3 text-stone-500"><X size={18} /></button>
+        <h2 className="font-serif text-xl font-bold text-emerald-900 mb-4">
+          {mode === "login" ? "Log in to UP20Shoppe" : "Create your account"}
+        </h2>
+
+        {error && <div className="bg-rose-100 border border-rose-300 text-rose-700 text-sm rounded-lg p-2 mb-3">{error}</div>}
+
+        {mode === "signup" && (
+          <>
+            <Field label="Full Name">
+              <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </Field>
+            <Field label="Phone Number">
+              <input className={inputCls} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            </Field>
+          </>
+        )}
+        <Field label="Email">
+          <input type="email" className={inputCls} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        </Field>
+        <Field label="Password">
+          <input type="password" className={inputCls} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+        </Field>
+
+        <button
+          onClick={() => (mode === "login" ? onLogin(form) : onSignup(form))}
+          className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-semibold py-2.5 rounded-lg mt-2 transition"
+        >
+          {mode === "login" ? "Log In" : "Sign Up"}
+        </button>
+
+        <p className="text-sm text-stone-600 text-center mt-4">
+          {mode === "login" ? (
+            <>New to UP20Shoppe? <button onClick={() => setMode("signup")} className="text-emerald-800 font-semibold underline">Create an account</button></>
+          ) : (
+            <>Already have an account? <button onClick={() => setMode("login")} className="text-emerald-800 font-semibold underline">Log in</button></>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="bg-emerald-950 text-emerald-100 mt-auto">
+      <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-3 gap-8 text-sm">
+        <div>
+          <p className="font-serif text-lg font-bold text-amber-400 mb-2">UP20Shoppe</p>
+          <p className="text-emerald-200/80">
+            Daily-need essentials, delivered across every tehsil of Bijnor district, Uttar Pradesh.
+          </p>
+        </div>
+        <div>
+          <p className="font-semibold text-amber-300 mb-2">Contact</p>
+          <p className="flex items-center gap-2 mb-1"><Mail size={14} /> ayushchauhan44008@gmail.com</p>
+          <p className="flex items-center gap-2"><MapPin size={14} /> Bijnor District, Uttar Pradesh, India</p>
+        </div>
+        <div>
+          <p className="font-semibold text-amber-300 mb-2">Developed by</p>
+          <p>Ayush Chauhan</p>
+          <p className="text-emerald-200/80">Accurate Institute of Management &amp; Technology, Greater Noida</p>
+        </div>
+      </div>
+      <div className="border-t border-emerald-800 text-center text-xs text-emerald-300/70 py-3">
+        © {new Date().getFullYear()} UP20Shoppe — a demo project by Ayush Chauhan
+      </div>
+    </footer>
+  );
+}
+
+const rootEl = document.getElementById("root");
+createRoot(rootEl).render(<App />);
+</script>
+</body>
+</html>
